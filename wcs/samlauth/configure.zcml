@@ -6,6 +6,10 @@
     i18n_domain="wcs.samlauth">
 
     <five:registerPackage package="." initialize=".initialize" />
+  <include
+      package="Products.CMFCore"
+      file="permissions.zcml"
+      />
 
     <browser:page
       for="wcs.samlauth.plugin.ISamlAuthPlugin"
@@ -54,6 +58,6 @@
       name="idp_metadata"
       class=".forms.LoadIdPMetadataView"
       permission="cmf.ManagePortal"
-      /> 
+      />
 
 </configure>

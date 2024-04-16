@@ -18,4 +18,5 @@ def initialize(context):
             plugin.manage_addSamlAuthPluginForm,
             plugin.manage_addSamlAuthPlugin,
         ),
-        visibility=None)
+        visibility=None,
+    )
