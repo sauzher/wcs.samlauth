@@ -11,6 +11,7 @@ def install_plugin():
     """Setup saml plugin"""
 
     from wcs.samlauth.plugin import SamlAuthPlugin
+
     pas = api.portal.get_tool('acl_users')
 
     # Create plugin if it does not exist.

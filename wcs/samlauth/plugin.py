@@ -23,12 +23,29 @@ import string
 logger = logging.getLogger(__name__)
 PWCHARS = string.ascii_letters + string.digits + string.punctuation
 
+FRIENDLY_NAME_ATTRIBUTES = {
+    'urn:oid:2.5.4.42': 'givenName',
+    'urn:oid:0.9.2342.19200300.100.1.1': 'uid',
+    'urn:oid:0.9.2342.19200300.100.1.3': 'email',
+    'urn:oid:2.5.4.3': 'cn',
+    'urn:oid:2.5.4.4': 'surname',
+    'urn:oid:1.3.6.1.4.1.5923.1.1.1.3': 'eduPersonOrgDN',
+    'urn:oid:1.3.6.1.4.1.5923.1.1.1.1': 'eduPersonAffiliation',
+    'urn:oid:1.3.6.1.4.1.25178.1.2.9': 'schacHomeOrganization',
+    'urn:oid:1.3.6.1.4.1.25178.1.2.10': 'schacHomeOrganizationType',
+    'urn:oid:1.3.6.1.4.1.5923.1.1.1.6': 'eduPersonPrincipalName',
+    'urn:oid:1.3.6.1.4.1.5923.1.1.1.9': 'eduPersonScopedAffiliation',
+    'urn:oid:1.3.6.1.4.1.5923.1.1.1.7': 'eduPersonEntitlement',
+    'urn:oid:2.16.840.1.113730.3.1.241': 'fullname',
+    'unibaID': 'unibaID',
+}
+
+
 manage_addSamlAuthPluginForm = PageTemplateFile("templates/add_plugin", globals())
 
 
 def manage_addSamlAuthPlugin(self, id_, title='', RESPONSE=None):
-    """Add a Saml2 Auth plugin.
-    """
+    """Add a Saml2 Auth plugin."""
     plugin = SamlAuthPlugin(id_, title)
     self._setObject(plugin.getId(), plugin)
 
@@ -41,8 +58,7 @@ class ISamlAuthPlugin(Interface):
 
 
 class SamlAuthPlugin(BasePlugin):
-    """Saml Auth plugin.
-    """
+    """Saml Auth plugin."""
 
     meta_type = "SAML Auth plugin"
     security = ClassSecurityInfo()
@@ -53,35 +69,67 @@ class SamlAuthPlugin(BasePlugin):
     validate_authn_request = False
     allowed_redirect_hosts = ()
     settings_sp = json.dumps(json.loads(clean_for_json(DEFAULT_SP_SETTINGS)), indent=4)
-    settings_idp = json.dumps(json.loads(clean_for_json(DEFAULT_IDP_SETTINGS)), indent=4)
+    settings_idp = json.dumps(
+        json.loads(clean_for_json(DEFAULT_IDP_SETTINGS)), indent=4
+    )
     advanced = json.dumps(json.loads(clean_for_json(ADVANCED_SETTINGS)), indent=4)
     adfs_as_idp = False
 
     _properties = (
-        dict(id='create_session', label='Create Plone Session', type='boolean', mode='w'),
-        dict(id='create_api_session', label='Create API Session', type='boolean', mode='w'),
+        dict(
+            id='create_session', label='Create Plone Session', type='boolean', mode='w'
+        ),
+        dict(
+            id='create_api_session',
+            label='Create API Session',
+            type='boolean',
+            mode='w',
+        ),
         dict(id='create_user', label='Create User', type='boolean', mode='w'),
-        dict(id='validate_authn_request', label='Validate AuthN requests via cookie', type='boolean', mode='w'),
-        dict(id='allowed_redirect_hosts', label='Allowed hosts to redirect to', type='lines', mode='w'),
+        dict(
+            id='validate_authn_request',
+            label='Validate AuthN requests via cookie',
+            type='boolean',
+            mode='w',
+        ),
+        dict(
+            id='allowed_redirect_hosts',
+            label='Allowed hosts to redirect to',
+            type='lines',
+            mode='w',
+        ),
         dict(id='settings_sp', label='SP (plone) Settings', type='text', mode='w'),
         dict(id='settings_idp', label='IDP Settings', type='text', mode='w'),
         dict(id='advanced', label='Advanced', type='text', mode='w'),
-        dict(id='adfs_as_idp', label='Check this box if ADFS is the IDP', type='boolean', mode='w'),
+        dict(
+            id='adfs_as_idp',
+            label='Check this box if ADFS is the IDP',
+            type='boolean',
+            mode='w',
+        ),
     )
 
     def __init__(self, id_, title=None):
         self._setId(id_)
         self.title = title
 
+    def mapFriendlyNameAttributes(self, auth):
+        for k, v in auth.get_attributes().items():
+            if k in FRIENDLY_NAME_ATTRIBUTES:
+                auth._friendlyname_attributes.update(
+                    {FRIENDLY_NAME_ATTRIBUTES.get(k): v[0]}
+                )
+
     def remember_identity(self, auth):
         user_id = auth.get_nameid()
+        self.mapFriendlyNameAttributes(auth)
         userinfo = auth.get_friendlyname_attributes()
         if not userinfo:
             userinfo = auth.get_attributes()
         pas = self._getPAS()
         if pas is None:
             return
-
+        user_id = userinfo.get('unibaID')
         user = pas.getUserById(user_id)
         if self.getProperty("create_user"):
             if user is None:
@@ -210,8 +258,7 @@ class SamlAuthPlugin(BasePlugin):
         )
 
     def challenge(self, request, response):
-        """Go to the login view of the PAS plugin
-        """
+        """Go to the login view of the PAS plugin"""
         logger.info(f'Challenge. Came from {request.URL}')
         url = f"{self.absolute_url()}/require_login?came_from={request.URL}"
         response.redirect(url, lock=1)
